@@ -27,6 +27,7 @@ static struct fb_var_screeninfo vinfo, orig;
 
 int main () {  
     double centx, centy;
+    double avg = 0;
     struct timeval start, end, delta;
     Matrix * points, * rotation, *mtmp;
     Vector * shift1, *shift2 , * tmp;
@@ -47,21 +48,27 @@ int main () {
     /*make buffer to write to screen*/
     screensize = finfo.smem_len;
     fbp = mmap(NULL, screensize, PROT_READ | PROT_WRITE, MAP_SHARED, fb_fd, (off_t)0);
-   
+    bbp = (unsigned char *) malloc(screensize);
     /*make buffer to modify without messing with framebuffer, init to 0*/
-    points = new_matrix(2,4);   
+    points = new_matrix(2,6);   
 
     points->columns[0]->elements[0] = 10; 
     points->columns[0]->elements[1] = 10; 
 
     points->columns[1]->elements[0] = 60; 
-    points->columns[1]->elements[1] = 10; 
-
-    points->columns[3]->elements[0] = 10; 
-    points->columns[3]->elements[1] = 60; 
+    points->columns[1]->elements[1] = 30; 
 
     points->columns[2]->elements[0] = 60; 
     points->columns[2]->elements[1] = 60; 
+
+    points->columns[3]->elements[0] = 5; 
+    points->columns[3]->elements[1] = 140; 
+
+    points->columns[4]->elements[0] = 200;
+    points->columns[4]->elements[1] = 200;
+
+    points->columns[5]->elements[0] = 80;
+    points->columns[5]->elements[1] = 90; 
 
     shift1 = new_vector(2);
     shift2 = new_vector(2);
@@ -73,8 +80,8 @@ int main () {
     rotation->columns[1]->elements[0] = .01745;
 
     for (idx = 0; idx < 360; idx++){
-        if (idx == 0) gettimeofday(&start, NULL);
-        memset(fbp, 0, screensize);
+        /*if (idx == 0)*/ gettimeofday(&start, NULL);
+        memset(bbp, 0, screensize);
         centx = (points->columns[0]->elements[0] + points->columns[1]->elements[0] + points->columns[2]->elements[0] + points->columns[3]->elements[0]) / 4; 
         centy = (points->columns[0]->elements[1] + points->columns[1]->elements[1] + points->columns[2]->elements[1] + points->columns[3]->elements[1]) / 4; 
         shift1->elements[0] = -centx;
@@ -97,13 +104,19 @@ int main () {
 
         /*draw something*/
         fill_poly(points, pixel_color(0xff, 0x00, 0x00));
-        if (idx == 0) gettimeofday(&end, NULL);
-        usleep(12000);
-#if !defined(dnu)
         /*swap buffers*/
         for (i = 0; i < screensize; i++) 
            fbp[i] = bbp[i]; 
-#endif
+        /*if (idx == 0)*/ gettimeofday(&end, NULL);
+        //usleep(12000);
+        delta = end;
+        delta.tv_sec -= start.tv_sec;
+        delta.tv_usec -= start.tv_usec;
+        if (delta.tv_usec < 0) {
+            delta.tv_usec +=1000000;
+            delta.tv_sec--;
+        }
+        avg += (double) delta.tv_sec + ((double) delta.tv_usec) *.000001;
     }
 
     free_matrix(points);
@@ -116,7 +129,8 @@ int main () {
         delta.tv_usec +=1000000;
         delta.tv_sec--;
     }
-    printf("%d.%06d s\n", delta.tv_sec, delta.tv_usec);
+    //printf("%d.%06d s\n", delta.tv_sec, delta.tv_usec);
+    printf("%lf s", avg/360);
     
     ioctl(fb_fd, FBIOPUT_VSCREENINFO, &orig);
     munmap(fbp, screensize);
@@ -139,7 +153,7 @@ void draw(unsigned int x, unsigned int y, unsigned int color) {
     unsigned int offset = 0;
     if (x >= 0 && y >=0 && x < vinfo.xres && y < vinfo.yres) {
         offset = vinfo.bits_per_pixel/8 * x + y * finfo.line_length;
-        *((unsigned int*)(fbp + offset)) = color;
+        *((unsigned int*)(bbp + offset)) = color;
     }
 }
 
@@ -170,30 +184,46 @@ void draw_line(Vector * a, Vector * b) {
 /*fills in a polygon whose points are represented as the vectors in the 
  * given matrix*/
 void fill_poly(Matrix * points, unsigned int color) {
-    double xmin = 0, xmax = vinfo.xres, ymin = 0, ymax = vinfo.yres;
+    double ymin = 0, ymax = vinfo.yres;
     int x, y, i, j = points->n - 1;
-    int oddnodes = 0;
+    double nodelist[30] = {0}; /*assuming there will be less than 30 crosses*/
+    int nodes = 0, swap;
+
     if (points != NULL) {
         for (i = 0; i < points->n; i++) { /*get bounding points*/
-            xmin = xmin < points->columns[i]->elements[0] ? xmin : points->columns[i]->elements[0];
             ymin = ymin < points->columns[i]->elements[1] ? ymin : points->columns[i]->elements[1];
-            xmax = xmax > points->columns[i]->elements[0] ? xmax : points->columns[i]->elements[0];
             ymax = ymax > points->columns[i]->elements[1] ? ymax : points->columns[i]->elements[1];
         }
 
-        for (y = ymin; y < ymax; y++) { /*loop through bounds of shape*/
-            for (x = xmin; x < xmax; x++) {
-                oddnodes = 0;
-                for (i = 0; i <  points->n; j = i++) { /*check if in polygon*/
-                    if (points->columns[i]->elements[1] < y && points->columns[j]->elements[1] >= y
-                    ||  points->columns[j]->elements[1] < y && points->columns[i]->elements[1] >= y) {
-                        if (points->columns[i]->elements[0] + (y - points->columns[i]->elements[1]) / (points->columns[j]->elements[1] - points->columns[i]->elements[1]) * (points->columns[j]->elements[0] - points->columns[i]->elements[0]) < x) {
-                            oddnodes = ~oddnodes;           
-                        }
+        for (y = ymin; y < ymax; y++) { /*loop through rows*/
+            nodes = 0;
+            for (i = 0; i <  points->n; j = i++) { /*get polygon bound points*/
+                if (points->columns[i]->elements[1] < y && points->columns[j]->elements[1] >= y
+                ||  points->columns[j]->elements[1] < y && points->columns[i]->elements[1] >= y) {
+                    nodelist[nodes++] = points->columns[i]->elements[0] + (y - points->columns[i]->elements[1]) / (points->columns[j]->elements[1] - points->columns[i]->elements[1]) * (points->columns[j]->elements[0] - points->columns[i]->elements[0]);
+                }
+            }
+            /*sort the nodes*/
+            i = 0;
+            while (i < nodes-1) {
+                if(nodelist[i] > nodelist[i+1]) {
+                    swap = nodelist[i];
+                    nodelist[i] = nodelist[i+1];
+                    nodelist[i+1] = swap;
+                    if (i) i--;
+                }
+                else i++;
+            }
+
+            for (i = 0; i < nodes; i+=2) {
+                if (nodelist[i] >= vinfo.yres) break;
+                if (nodelist[i+1] > 0) {
+                    if (nodelist[i] < 0) nodelist[i] = 0;
+                    if (nodelist[i+1] > vinfo.yres) nodelist[i+1] = vinfo.yres;
+                    for (x = nodelist[i]; x < nodelist[i+1]; x++) { /*loop through columns*/
+                        draw(x,y,color);
                     }
                 }
-                if (oddnodes) 
-                    draw(x,y,color);
             }
         }
     }
