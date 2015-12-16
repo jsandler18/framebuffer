@@ -26,13 +26,22 @@ static struct fb_fix_screeninfo finfo;
 static struct fb_var_screeninfo vinfo, orig;
 
 int main () {  
-    double centx, centy;
-    double avg = 0;
     struct timeval start, end, delta;
     Matrix * points, * rotation, *mtmp;
     Vector * shift1, *shift2 , * tmp;
+    unsigned int color;
     int screensize, x, y, location;
     int idx,i;
+    int mouse_fd;
+    char mouse_event[3];
+    char direction = 0, button = 0;
+    char tmpstr[5];
+    /*open mouse*/
+    mouse_fd = open("/dev/input/mice", O_RDONLY);
+    if (mouse_fd == -1) {
+        printf("could not open mouse\n");
+        exit(-1);
+    }
     /*open framebuffer*/
     int fb_fd = open("/dev/fb0", O_RDWR);
     /*get screen info*/
@@ -50,77 +59,55 @@ int main () {
     fbp = mmap(NULL, screensize, PROT_READ | PROT_WRITE, MAP_SHARED, fb_fd, (off_t)0);
     bbp = (unsigned char *) malloc(screensize);
     /*make buffer to modify without messing with framebuffer, init to 0*/
-    points = new_matrix(2,6);   
+    points = new_matrix(2,4);   
 
     points->columns[0]->elements[0] = 10; 
     points->columns[0]->elements[1] = 10; 
 
-    points->columns[1]->elements[0] = 60; 
-    points->columns[1]->elements[1] = 30; 
+    points->columns[1]->elements[0] = 30; 
+    points->columns[1]->elements[1] = 10; 
 
-    points->columns[2]->elements[0] = 60; 
-    points->columns[2]->elements[1] = 60; 
+    points->columns[2]->elements[0] = 30; 
+    points->columns[2]->elements[1] = 30; 
 
-    points->columns[3]->elements[0] = 5; 
-    points->columns[3]->elements[1] = 140; 
-
-    points->columns[4]->elements[0] = 200;
-    points->columns[4]->elements[1] = 200;
-
-    points->columns[5]->elements[0] = 80;
-    points->columns[5]->elements[1] = 90; 
+    points->columns[3]->elements[0] = 10; 
+    points->columns[3]->elements[1] = 30; 
 
     shift1 = new_vector(2);
-    shift2 = new_vector(2);
 
-    rotation = new_matrix(2,2);
-    rotation->columns[0]->elements[0] = .99985;
-    rotation->columns[0]->elements[1] = -.01745;
-    rotation->columns[1]->elements[1] = .99985;
-    rotation->columns[1]->elements[0] = .01745;
-
-    for (idx = 0; idx < 360; idx++){
-        /*if (idx == 0)*/ gettimeofday(&start, NULL);
+    while (1) {
+        if (idx == 0) gettimeofday(&start, NULL);
+        read (mouse_fd, mouse_event, 3);
+        button = mouse_event[0] & 0x0f;
+        if (button == 8) color = pixel_color(0xff, 0xff, 0xff);
+        if (button == 9) color = pixel_color(0xff, 0x00, 0x00);
+        if (button == 10) color = pixel_color(0xff, 0x00, 0xff);
+        if (button == 11) break;
         memset(bbp, 0, screensize);
-        centx = (points->columns[0]->elements[0] + points->columns[1]->elements[0] + points->columns[2]->elements[0] + points->columns[3]->elements[0]) / 4; 
-        centy = (points->columns[0]->elements[1] + points->columns[1]->elements[1] + points->columns[2]->elements[1] + points->columns[3]->elements[1]) / 4; 
-        shift1->elements[0] = -centx;
-        shift1->elements[1] = -centy;
-        shift2->elements[0] = centx;
-        shift2->elements[1] = centy;
+        sprintf(tmpstr, "%hhd", mouse_event[1]);
+        shift1->elements[0] = atoi(tmpstr);
+        sprintf(tmpstr, "%hhd", mouse_event[2]);
+        shift1->elements[1] = -atoi(tmpstr);
         for (i = 0; i < points->n; i++) {
             tmp = points->columns[i];
             points->columns[i] = vector_add(tmp, shift1);
             free_vector(tmp);
         }
-        mtmp = points;
-        points = matrix_multiply(rotation, points);
-        free_matrix(mtmp);
-        for (i = 0; i < points->n; i++) {
-            tmp = points->columns[i];
-            points->columns[i] = vector_add(tmp, shift2);
-            free_vector(tmp);
-        }
 
         /*draw something*/
-        fill_poly(points, pixel_color(0xff, 0x00, 0x00));
+        fill_poly(points, color);
         /*swap buffers*/
         for (i = 0; i < screensize; i++) 
            fbp[i] = bbp[i]; 
-        /*if (idx == 0)*/ gettimeofday(&end, NULL);
+        if (idx == 0) gettimeofday(&end, NULL);
         //usleep(12000);
-        delta = end;
-        delta.tv_sec -= start.tv_sec;
-        delta.tv_usec -= start.tv_usec;
-        if (delta.tv_usec < 0) {
-            delta.tv_usec +=1000000;
-            delta.tv_sec--;
-        }
-        avg += (double) delta.tv_sec + ((double) delta.tv_usec) *.000001;
+    }
+    while (button != 8) {
+        read (mouse_fd, mouse_event, 3);
+        button = mouse_event[0] & 0x0f;
     }
 
     free_matrix(points);
-    free_vector(shift2);
     free_vector(shift1);
     delta = end;
     delta.tv_sec -= start.tv_sec;
@@ -129,12 +116,12 @@ int main () {
         delta.tv_usec +=1000000;
         delta.tv_sec--;
     }
-    //printf("%d.%06d s\n", delta.tv_sec, delta.tv_usec);
-    printf("%lf s", avg/360);
+    printf("%d.%06d s\n", delta.tv_sec, delta.tv_usec);
     
     ioctl(fb_fd, FBIOPUT_VSCREENINFO, &orig);
     munmap(fbp, screensize);
     close(fb_fd);
+    close(mouse_fd);
     return 0;
 }
 
