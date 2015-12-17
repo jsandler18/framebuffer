@@ -103,6 +103,7 @@ int main () {
         if (idx == 0) gettimeofday(&start, NULL);
         read (mouse_fd, mouse_event, 3);
         button = mouse_event[0] & 0x0f;
+<<<<<<< HEAD
         if (button == 10) color = pixel_color(0x00, 0xff, 0x00);
         if (button == 8) color = pixel_color(0x00, 0x00, 0xff);
         if (button == 11) break;
