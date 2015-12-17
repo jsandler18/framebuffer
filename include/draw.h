@@ -5,6 +5,7 @@
  * screen info*/
 #if !defined(DRAW_H)
 #define DRAW_H
+#include "linalg.h"
 unsigned int pixel_color(unsigned char r, unsigned char g, unsigned char b);
 void draw(unsigned int x, unsigned int y, unsigned int color);
 void draw_line(Vector * a, Vector * b);

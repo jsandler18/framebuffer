@@ -5,7 +5,7 @@ OBJECTS=obj
 VPATH=fb:linalg:$(INCLUDE):obj
 
 fb.x: fb.o draw.o linalg.o
-	$(CC) $< fb.o $< draw.o $< linalg.o -o fb.x
+	$(CC) $^ -o $@
 
 fb.o: fb.c 
 	$(CC) $(CFLAGS) -I$(INCLUDE) $< -o $(OBJECTS)/$@

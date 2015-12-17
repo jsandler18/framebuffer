@@ -12,13 +12,13 @@
 #include "draw.h"
 
 int main () {  
-    Matrix * points, * mouse, *mtmp;
-    Vector * shift1, *shift2 , * tmp;
+    Matrix * points, * mouse;
+    Vector * shift1, * tmp;
     unsigned int color;
-    int idx,i;
+    int i;
     int mouse_fd;
     char mouse_event[3];
-    char direction = 0, button = 0;
+    char button = 0;
     char tmpstr[5];
     /*open mouse*/
     mouse_fd = open("/dev/input/mice", O_RDONLY);
@@ -72,6 +72,7 @@ int main () {
     while (1) {
         read (mouse_fd, mouse_event, 3);
         button = mouse_event[0] & 0x0f;
+        color = pixel_color(0x00, 0xff, 0x00);
         if (button == 10) color = pixel_color(0x00, 0xff, 0x00);
         if (button == 8) color = pixel_color(0x00, 0x00, 0xff);
         if (button == 11) break;

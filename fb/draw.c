@@ -1,4 +1,5 @@
 #include "draw.h"
+#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -9,7 +10,6 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include "linalg.h"
-#include <sys/time.h>
 #include <sys/resource.h>
 
 /*takes three 8 byte rgb vlues and a pointer to a fb_var_screeninfo and returns 
@@ -68,8 +68,8 @@ void fill_poly(Matrix * points, unsigned int color) {
         for (y = ymin; y < ymax; y++) { /*loop through rows*/
             nodes = 0;
             for (i = 0; i <  points->n; j = i++) { /*get polygon bound points*/
-                if (points->columns[i]->elements[1] < y && points->columns[j]->elements[1] >= y
-                ||  points->columns[j]->elements[1] < y && points->columns[i]->elements[1] >= y) {
+                if ((points->columns[i]->elements[1] < y && points->columns[j]->elements[1] >= y)
+                ||  (points->columns[j]->elements[1] < y && points->columns[i]->elements[1] >= y)) {
                     nodelist[nodes++] = points->columns[i]->elements[0] + (y - points->columns[i]->elements[1]) / (points->columns[j]->elements[1] - points->columns[i]->elements[1]) * (points->columns[j]->elements[0] - points->columns[i]->elements[0]);
                 }
             }
@@ -108,12 +108,13 @@ int is_in_poly(Matrix * points, Vector * test) {
                 result = !result;
             }
         }
-    return result;
     }
+    return result;
 }
 
 /*swaps the front and back buffers, effectively refreshing the screen*/
 void swap_buffers(void) {
+    int i;
     /*swap buffers*/
     for (i = 0; i < finfo.smem_len; i++) 
        fbp[i] = bbp[i]; 
