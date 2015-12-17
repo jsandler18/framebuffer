@@ -8,7 +8,7 @@
 #include <linux/fb.h>
 #include <fcntl.h>
 #include <sys/mman.h>
-#include "../linalg/linalg.h"
+#include "linalg.h"
 #include <sys/time.h>
 #include <sys/resource.h>
 
