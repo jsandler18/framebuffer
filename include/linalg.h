@@ -5,7 +5,7 @@
 
 /*represents a vector.  has an array of m real number elements*/
 typedef struct {
-    double * elements;
+    float * elements;
     unsigned int m;
 } Vector;
 
@@ -16,7 +16,7 @@ typedef struct {
 } Matrix;
 
 Vector * new_vector(unsigned int m);
-Vector * scalar_mult(double a, Vector * u);
+Vector * scalar_mult(float a, Vector * u);
 Vector * vector_add(Vector * u, Vector * v);
 void free_vector(Vector * u);
 Vector * linear_combo(Matrix * a, Vector * x);

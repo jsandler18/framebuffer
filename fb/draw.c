@@ -12,6 +12,7 @@
 #include "linalg.h"
 #include <sys/resource.h>
 
+
 /*takes three 8 byte rgb vlues and a pointer to a fb_var_screeninfo and returns 
  * a pixel with the rgb filled in*/
 unsigned int pixel_color(unsigned char r, unsigned char g, unsigned char b) {
@@ -29,7 +30,7 @@ void draw(unsigned int x, unsigned int y, unsigned int color) {
 
 /*draws a line from the vector in a to the vector in b. must be in R2 */
 void draw_line(Vector * a, Vector * b) {
-    double slope, shift;
+    float slope, shift;
     int max, min, idx;
     unsigned int color = pixel_color(0xff, 0x00, 0xff);
     if (a != NULL && b != NULL && a->m == 2 && b->m == 2) {
@@ -54,9 +55,9 @@ void draw_line(Vector * a, Vector * b) {
 /*fills in a polygon whose points are represented as the vectors in the 
  * given matrix*/
 void fill_poly(Matrix * points, unsigned int color) {
-    double ymin = 0, ymax = vinfo.yres;
+    float ymin = 0, ymax = vinfo.yres;
     int x, y, i, j = points->n - 1;
-    double nodelist[30] = {0}; /*assuming there will be less than 30 crosses*/
+    float nodelist[30] = {0}; /*assuming there will be less than 30 crosses*/
     int nodes = 0, swap;
 
     if (points != NULL) {
@@ -157,4 +158,3 @@ void restore_screen(void) {
 void clear_screen(void) {
     memset(bbp, 0, finfo.smem_len);
 }
-

@@ -10,13 +10,13 @@ Vector * new_vector(unsigned int m) {
         Vector * result = (Vector *) malloc(sizeof(Vector));
         if (result == NULL) exit(-1);
         result->m = m;
-        result->elements = (double *) calloc(m, sizeof(double));
+        result->elements = (float *) calloc(m, sizeof(float));
         if (result->elements == NULL) exit (-1);
         return result;
 }
 /*Scalar multiplies a vector. returns a new dynamically allocated vector. 
  * returns null if input vector is null.*/
-Vector * scalar_mult(double a, Vector * u) {
+Vector * scalar_mult(float a, Vector * u) {
     Vector * result = NULL;
     int idx;
     if (u != NULL) {
